@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Free Countdown Timer - Set & Save Any Date</title>
+<link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="images//favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="images/">
+<link rel="manifest" href="images/site.webmanifest">
+<meta name="description" content="Simple online countdown timer with timezone support. Save your countdown in your browser and resume anytime, even after reload. Works on mobile & desktop.">
+<link rel="canonical" href="https://yourdomain.com/countdown">
+<meta property="og:title" content="Free Countdown Timer">
+<meta property="og:description" content="Set a countdown to any moment, pick a timezone, and resume later — all in your browser.">
+<meta property="og:image" content="https://via.placeholder.com/600x315.png?text=Countdown+Timer">
+<meta property="og:url" content="https://yourdomain.com/countdown">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free Countdown Timer">
+<meta name="twitter:description" content="Set a countdown to any date and save it locally. Works offline & on mobile.">
+<meta name="twitter:image" content="images/screenshot_countdown.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Free Countdown Timer",
+  "url": "https://yourdomain.com/countdown",
+  "description": "Set a countdown to any moment, pick a timezone, and resume later — all in your browser.",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Any",
+  "image": "images/screenshot_countdown.png"
+}
+</script>
+
+<style>
+    html, body {
+        height: 100%;
+        margin: 0;
+        background: #111;
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        text-align: center;
+    }
+    h1 {
+        margin-bottom: 15px;
+        font-size: clamp(1.5rem, 4vw, 2.5rem);
+    }
+    #timer {
+        font-size: clamp(2rem, 12vw, 8rem);
+        font-weight: bold;
+        text-align: center;
+        transition: transform 0.3s ease-in-out;
+        margin: 10px 0;
+    }
+    .controls {
+        margin-bottom: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+    }
+    input, select, button {
+        font-size: 1rem;
+        padding: 10px 12px;
+        border-radius: 5px;
+        border: none;
+        flex: 1 1 auto;
+        min-width: 140px;
+    }
+    button {
+        cursor: pointer;
+        background: #444;
+        color: white;
+    }
+    button:hover {
+        background: #666;
+    }
+    @keyframes pulse {
+        0% { transform: scale(1); color: white; }
+        50% { transform: scale(1.2); color: gold; }
+        100% { transform: scale(1); color: white; }
+    }
+    #banner-container {
+        position: fixed;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+        padding: 5px;
+        max-width: 90%;
+    }
+    #banner-container img {
+        max-height: 50px;
+        width: auto;
+        display: block;
+        cursor: pointer;
+        border-radius: 5px;
+    }
+    @media (max-width: 500px) {
+        #banner-container img {
+            max-height: 40px;
+        }
+    }
+    .hidden {
+        display: none !important;
+    }
+</style>
+</head>
+<body>
+
+<h1>Countdown Timer</h1>
+
+<div class="controls">
+    <input type="datetime-local" id="datetime">
+    <select id="timezone">
+        <option value="">Use System Timezone</option>
+    </select>
+    <button id="startBtn">Start</button>
+    <button id="resetBtn">Reset</button>
+    <button id="fullscreenBtn">Full Screen</button>
+</div>
+
+<div id="timer">-- : -- : -- : --</div>
+
+<div id="banner-container">
+    <a href="https://example.com" target="_blank" rel="noopener noreferrer">
+        <img src="https://via.placeholder.com/300x60?text=Your+Ad+Here" alt="Banner Advertisement for Example.com">
+    </a>
+</div>
+
+<script>
+    const timerDisplay = document.getElementById('timer');
+    const datetimeInput = document.getElementById('datetime');
+    const timezoneSelect = document.getElementById('timezone');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const bannerContainer = document.getElementById('banner-container');
+
+    let countdownInterval;
+
+    timezoneSelect.innerHTML = '<option value="">Use System Timezone</option>';
+    if (typeof Intl.supportedValuesOf === 'function') {
+        const timezones = Intl.supportedValuesOf("timeZone");
+        timezones.forEach(tz => {
+            const opt = document.createElement('option');
+            opt.value = tz;
+            opt.textContent = tz;
+            timezoneSelect.appendChild(opt);
+        });
+    } else {
+        ["UTC","America/New_York","America/Los_Angeles","Europe/London","Europe/Paris","Asia/Tokyo","Australia/Sydney"].forEach(tz => {
+            const opt = document.createElement('option');
+            opt.value = tz;
+            opt.textContent = tz;
+            timezoneSelect.appendChild(opt);
+        });
+    }
+
+    function startCountdown(targetTime) {
+        clearInterval(countdownInterval);
+        countdownInterval = setInterval(() => {
+            const now = new Date().getTime();
+            const distance = targetTime - now;
+
+            if (distance <= 0) {
+                clearInterval(countdownInterval);
+                timerDisplay.textContent = "🎉 DONE! 🎉";
+                timerDisplay.style.animation = "pulse 1s infinite";
+                localStorage.removeItem('countdownData');
+                return;
+            }
+
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            timerDisplay.textContent = `${days}d : ${hours}h : ${minutes}m : ${seconds}s`;
+        }, 1000);
+    }
+
+    function getTimeInSelectedZone(dateString, timezone) {
+        if (!timezone) return new Date(dateString).getTime();
+        const date = new Date(dateString);
+        const zonedDate = new Date(date.toLocaleString("en-US", { timeZone: timezone }));
+        const diff = date.getTime() - zonedDate.getTime();
+        return date.getTime() + diff;
+    }
+
+    startBtn.addEventListener('click', () => {
+        if (!datetimeInput.value) return alert("Please select a date and time.");
+        const tz = timezoneSelect.value || Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const targetTime = getTimeInSelectedZone(datetimeInput.value, tz);
+
+        localStorage.setItem('countdownData', JSON.stringify({
+            targetTime,
+            tz,
+            dateInput: datetimeInput.value
+        }));
+
+        timerDisplay.style.animation = "none";
+        startCountdown(targetTime);
+    });
+
+    resetBtn.addEventListener('click', () => {
+        clearInterval(countdownInterval);
+        timerDisplay.textContent = "-- : -- : -- : --";
+        timerDisplay.style.animation = "none";
+        localStorage.removeItem('countdownData');
+        datetimeInput.value = '';
+        timezoneSelect.value = '';
+    });
+
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+        if (document.fullscreenElement) {
+            bannerContainer.classList.add('hidden');
+        } else {
+            bannerContainer.classList.remove('hidden');
+        }
+    });
+
+    window.addEventListener('load', () => {
+        const savedData = localStorage.getItem('countdownData');
+        if (savedData) {
+            const { targetTime, tz, dateInput } = JSON.parse(savedData);
+
+            datetimeInput.value = dateInput || '';
+            timezoneSelect.value = tz || '';
+            startCountdown(targetTime);
+        }
+    });
+</script>
+
+</body>
+</html>
