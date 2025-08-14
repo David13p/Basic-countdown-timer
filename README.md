@@ -1,3 +1,3 @@
 **Basic free countdown timer**
 
-A simple countdown timer that counts down till a specific date it stores the countdown locally so it works even after reloading the page.
+A very basic countdown timer that stores the countdown locally and continues counting down even after reloading the page
